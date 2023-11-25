@@ -1,0 +1,45 @@
+{
+  "name": "context-tree",
+  "version": "0.0.1",
+  "description": "Simple hierarchical dependency injection library, as part of Fractal Architecture",
+  "type": "module",
+  "source": "src/index.ts",
+  "main": "dist/index.cjs",
+  "module": "dist/index.module.js",
+  "exports": {
+    "require": "./dist/index.cjs",
+    "default": "./dist/index.modern.js"
+  },
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "microbundle --no-compress",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/zheksoon/context-tree.git"
+  },
+  "keywords": [
+    "context",
+    "fractal",
+    "fractal architecture",
+    "dependency injection",
+    "DI"
+  ],
+  "author": "Eugene Daragan",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/zheksoon/context-tree/issues"
+  },
+  "homepage": "https://github.com/zheksoon/context-tree#readme",
+  "devDependencies": {
+    "microbundle": "^0.15.1"
+  }
+}
