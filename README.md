@@ -2,6 +2,10 @@
   <img src="https://raw.githubusercontent.com/zheksoon/context-tree/master/assets/logo.png" alt="context-tree logo" width="100" />
   <br />
   context-tree
+  <br />
+  <img src="https://img.shields.io/npm/v/context-tree?color=16b887" alt="npm version" />
+  <img src="https://img.shields.io/bundlephobia/minzip/context-tree?label=gzip&color=16b887" alt="bundle size" />
+  <img src="https://img.shields.io/github/license/zheksoon/context-tree?color=16b887" alt="license" />
 </h1>
 
 **context-tree** is a simple implementation of a hierarchical dependency injection (DI) pattern for building scalable web applications.

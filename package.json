@@ -1,6 +1,6 @@
 {
   "name": "context-tree",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Simple hierarchical dependency injection library, as part of Fractal Architecture",
   "type": "module",
   "source": "src/index.ts",
@@ -20,7 +20,8 @@
     "src",
     "README.md",
     "LICENSE",
-    "package.json"
+    "package.json",
+    "jest.config.js"
   ],
   "repository": {
     "type": "git",
@@ -28,10 +29,22 @@
   },
   "keywords": [
     "context",
+    "react context",
     "fractal",
     "fractal architecture",
     "dependency injection",
-    "DI"
+    "di",
+    "di framework",
+    "di library",
+    "ioc",
+    "inversion of control",
+    "hierarchical",
+    "hierarchy",
+    "tsyringe",
+    "inversify",
+    "awilix",
+    "typescript",
+    "vanilla js"
   ],
   "author": "Eugene Daragan",
   "license": "MIT",
