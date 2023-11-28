@@ -1,153 +1,118 @@
-# Context-tree
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/zheksoon/context-tree/master/assets/logo.png" alt="context-tree logo" width="100" />
+  <br />
+  context-tree
+</h1>
 
-**Context-tree** is a library implementing hierarchical dependency injection (DI) pattern for building scalable web applications.
-It implements the same concept as React's `Context`, but without relying on React.
+**context-tree** is a simple implementation of a hierarchical dependency injection (DI) pattern for building scalable web applications.
+It implements the same concept as React's `Context`, but without relying on React. 
+The pattern allows you to create arbitrary nested applications and sub-applications, simplifying the architecture and maintaining code clarity.
+
+Unlike other DI frameworks, **context-tree** does not require you to define a dependency graph in advance, offering a more flexible approach.
+The difference from the other DI frameworks is an inherent hierarchy of injectable entities, called **contexts**.
+They align with the hierarchy of the application itself and form a tree like React contexts do. 
+Like in React, you can redefine the context value at any point of the tree, and also add and remove context resolvers dynamically.
+
+**context-tree** is framework-agnostic and can be used with any framework or without a framework at all. 
+It also does not require any decorators or other magic, so it's easy to understand and debug, and can be used in pure JS projects.
+**context-tree** has no dependencies and is very lightweight, and because of the pattern simplicity, it's very fast.
 
 ## Defining models
 
-**Context-tree** requires your data models to implement `IContext` interface, which is very simple and has only one field required: `context` of type `IContext | null | undefined`.
+**Context-tree** requires your data models to implement a simple `IContext` interface with only one field required: `context` of type `IContext | null | undefined`.
 This field should point to a parent model, or be `null` in case there is no parent model.
 
-Let's define a simple todo list app with contexts:
+Here's a simple example:
 
 ```ts
-import { IContext } from "contextual";
+import { IContext } from "context-tree";
 
-// IConfigModel is an interface that defines some configuration options
-interface IConfigModel {
-  baseUrl: string;
-  option1: string;
+class RootModel implements IContext {
+  // root model does not have context, so it's null
+  public context = null;
+
+  // by convention, all models with context take a parent as the first argument
+  childModel = new ChildModel(this);
 }
 
-// models that have context should extend IContext interface
-interface IAppModel extends IContext {
-  todoList: ITodoListModel;
-}
-
-interface ITodoListModel extends IContext {
-  todoItems: ITodoItemModel[];
-  filter: string;
-}
-
-interface ITodoItemModel extends IContext {
-  text: string;
-  done: boolean;
-}
-
-// implementation of config model
-class ConfigModel implements IConfigModel {
-  // some implementation of config model
-}
-
-// AppModel is root entity, it doesn't have context, so the context field is null
-class AppModel implements IAppModel {
-  context = null;
-
-  // todoList is a child model, so it should have a reference to its parent
-  todoList = new TodoListModel(this);
-  config = new ConfigModel();
-}
-
-class TodoListModel implements ITodoListModel {
-  todoItems: ITodoItemModel[] = [];
-  filter = "ALL";
-
-  //by convention, parent model is passed as the first argument in constructor
+class ChildModel implements IContext {
+  // use TS shortcut to define a field from the constructor arg
+  // now it points to the parent model
   constructor(public context: IContext) {}
 }
+```
 
-class TodoItemModel implements ITodoItemModel {
-  declare text: string;
-  declare done: boolean;
+At this point of time, we have a model tree. Let's define a context and add the resolver fo it.
 
-  // the same, the first argument is a parent model
-  constructor(public context: IContext, text: string) {
-    this.text = text;
-    this.done = false;
-  }
+```ts
+import { Context, IContext } from "context-tree";
+
+// define some interface for config object
+interface IConfigModel {
+  baseUrl: string;
+  apiKey: string;
 }
-```
 
-First, we define model interfaces that extend `IContext` interface, and then we define models that implement these interfaces.
-There is a convention, that for any non-root model, its parent is passed as the first argument in constructor.
-In Typescript, it's simply done by constructor field declaration shortcut:
-
-```ts
-constructor(public context: IContext) {
-  ...
+// an implementation of the interface
+class ConfigModel implements IConfigModel {
+  baseUrl = "https://.../";
+  apiKey = "abcdef123";
 }
-```
 
-Let's define context types to see how we can use the implemented interfaces.
+// define a context that carries the type of the config
+const ConfigContext = new Context<IConfig>("ConfigContext");
 
-## Context types
+class RootModel implements IContext {
+  public context = null;
 
-Context type, or simply context, is a simple class that carries information about a type (defined in a generic parameter), and name.
-
-It's as simple as this:
-
-```ts
-import { Context } from "contextual";
-
-const AppContext = new Context<IAppModel>("AppContext");
-
-const ConfigContext = new Context<IConfigModel>("ConfigContext");
-```
-
-To use a context, we must define **resolver** for it.
-Resolver is a function that is called when a context is trying to find an instance of it by calling `ContextInstance.find(this)`.
-To define a resolver, we should add `contextResolvers` field to our model declaration, like this:
-
-```ts
-class AppModel implements IAppModel {
-  context = null;
-  
-  contextResolvers = Context.resolvers([
-    AppContext.resolvesTo(() => this),
+  // define resolvers - functions that are called when the context resolves
+  public contextResolvers = Context.resolvers([
     ConfigContext.resolvesTo(() => this.config),
   ]);
 
-  todoList = new TodoListModel(this);
-  config = new ConfigModel();
+  private config = new ConfigModel();
+
+  private childModel = new ChildModel(this);
 }
-```
 
-Then we can use it to get the `AppModel` or `ConfigModel` instance from any part of our application that was created inside the `AppModel`. Let's get the config instance from inside of `TodoItemModel`:
+class ChildModel implements IContext {
+  constructor(public context: IContext) {}
 
-```ts
-class TodoItemModel implements ITodoItemModel {
-  async fetchData() {
-    // now config is an instance of ConfigModel defined AppModel resolver
-    const config = ConfigContext.find(this);
+  async getData() {
+    // to get the config instance, call `resolve` on the context 
+    // and pass the current model as the first argument
+    const config = ConfigContext.resolve(this);
+
+    // use the config instance
+    const data = await fetch(`${config.baseUrl}/endpoint`);
   }
 }
 ```
 
-As you can see, `ConfigContext.find(this)` returns an optional instance of `IConfigModel` which can be found upper in the model tree as part of `AppModel` resolvers.
-
-There is also a shortcut for defining a resolver that resolves to `this`, so the following:
+In case you want a model itself to be a context, you can use `contextType` field:
 
 ```ts
-class AppModel implements IAppModel {
+const RootContext = new Context<RootModel>('RootContext');
+
+class RootModel implements IContext {
+  // no parent context
+  context = null;
+
+  // now RootContext resolves to the model instance
+  contextType = RootContext;
+
+  // define some extra resolvers
   contextResolvers = Context.resolvers([
-    AppContext.resolvesTo(() => this)
+    ...
   ]);
-}
-```
-
-can be rewritten as:
-
-```ts
-class AppModel implements IAppModel {
-  contextType = AppContext;
 }
 ```
 
 ## Partial contexts
 
-Not always full contexts are needed. For example, the config model and its interface can contain dozens of fields, and our model may need only a few of them. In case we write some unit tests for our model, we have to supply a full config context that implements every field from its interface, and that can be cumbersome.
+Not always full contexts are needed. For example, the config model and its interface can contain dozens of fields, and our model may need only a few of them. When we are writing unit tests for a model, we have to supply a full config context that implements every field from its interface, and that can be cumbersome.
 
-Partial contexts solve this problem by allowing you to define a partial interface from your original context. If the partial context is used to resolve a model, it will resolve to the closest parent model that implements the partial interface.
+Partial contexts solve this problem by allowing you to define a partial interface from your original context. If the partial context resolves, it will resolve to the closest parent model that implements the partial interface.
 
 Here's an example:
 
@@ -162,16 +127,107 @@ interface IConfigModel {
 const ConfigContext = new Context<IConfigModel>("ConfigContext");
 
 // pick only option1 and option2 from IConfigModel
-type ITodoItemConfigModel = Pick<IConfigModel, "option1" | "option2">;
+type IPartialConfigModel = Pick<IConfigModel, "option1" | "option2">;
 
 // define a partial context derived from the ConfigContext
-const TodoItemConfigContext = ConfigContext.partial<ITodoItemConfigModel>(
-  "TodoItemConfigContext"
+const PartialConfigContext = ConfigContext.partial<IPartialConfigModel>(
+  "PartialConfigContext"
 );
 
-// Finds a closest instance of ITodoItemConfigModel or IConfigModel
-TodoItemConfigContext.find(this);
+// Finds a closest instance of IPartialConfigModel or IConfigModel
+PartialConfigContext.resolve(this);
 ```
+
+### Dynamic context manipulation
+
+Context resolvers can be dynamically added or removed from a model. This might be useful in complex scenarios, when contexts are not known in advance.
+
+```ts
+const Context1 = new Context<number>('Context1');
+const Context2 = new Context<string>('Context2');
+
+class RootModel implements IContext {
+  // no parent context
+  context = null;
+
+  // define static resolvers
+  contextResolvers = Context.resolvers([
+    Context1.resolvesTo(() => 1 + 2),
+  ]);
+
+  // add dynamic resolvers
+  doSomething() {
+    this.contextResolvers.addResolver(Context2.resolvesTo(() => 'hello'));
+  }
+
+  // remove dynamic resolvers
+  doSomethingElse() {
+    this.contextResolvers.removeResolver(Context2);
+  }
+}
+```
+
+## Required contexts
+
+Sometimes you want to make sure that a model has all required contexts resolved. For example, you may want to make sure that a model has a config context resolved before it can be used. To do that, you can define a static field `requiredContexts` on a class or class instance:
+
+```ts
+const Context1 = new Context<number>('Context1');
+const Context2 = new Context<string>('Context2');
+
+class RootModel implements IContext {
+  // no parent context
+  context = null;
+
+  // define resolvers
+  contextResolvers = Context.resolvers([
+    Context1.resolvesTo(() => 1 + 2),
+  ]);
+
+  // define required contexts
+  // RootModel has no Context2 resolver, so it will throw an error
+  static requiredContexts = [Context2];
+}
+
+// throws an error
+Context.checkRequired(new RootModel());
+```
+
+# API
+
+## Context
+
+### `new Context<T>(name: string): Context<T>`
+
+Creates a new context with the given name. The name is used for debugging purposes.
+
+### `Context.resolvesTo<T>(resolver: () => T): ContextResolver<T>`
+
+Create a resolver for the context. The resolver is a function that returns a value of type `T`. The resolver is called when the context is resolved.
+
+### `Context.resolvers(resolvers: Array<ContextResolver<any>>): ContextResolvers`
+
+Define a list of resolvers for a model. 
+
+### `contextInstance.partial<T>(name: string): Context<T>`
+
+Creates a partial context derived from the current context. The partial context can be resolved to the closest parent model that implements the partial interface.
+
+### `contextInstance.resolve<T>(model: IContext): T`
+
+Finds the closest context resolver of the type and calls it to resolve the value. If no resolver is found, throws an error.
+
+### `contextInstance.resolveMaybe<T>(model: IContext): T | undefined`
+
+Finds the closest context resolver of the type and calls it to resolve the value. If no resolver is found, returns `undefined`.
+
+### `contextInstance.findResolver(model: IContext): ContextResolver<any> | undefined`
+
+Finds the closest context resolver of the type. If no resolver is found, returns `undefined`.
+
+### `Context.checkRequired(model: IContext): void`
+
+Checks if all required resolvers are defined for the model. If not, throws an error. Required contexts are defined by `requiredContexts` field on a class or class instance.
 
 # Author
 

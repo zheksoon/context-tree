@@ -4,62 +4,85 @@ export interface IContext {
   contextResolvers?: ContextResolvers;
 }
 
-type ContextResolver<T = any> = readonly [symbol, () => T];
-type ContextResolvers = Map<symbol, () => any>;
+export class ContextResolver<T> {
+  constructor(
+    public readonly context: Context<T>,
+    public readonly resolver: () => T
+  ) {}
+}
+
+export class ContextResolvers {
+  private resolvers: Map<Context<any>, () => any> = new Map();
+
+  addResolver(resolver: ContextResolver<any>) {
+    const { context, resolver: _resolver } = resolver;
+
+    this.resolvers.set(context, _resolver);
+  }
+
+  removeResolver(context: Context<any>) {
+    this.resolvers.delete(context);
+  }
+
+  findResolver<T>(_context: Context<T>): (() => T) | null {
+    let context: Context<any> | null | undefined = _context;
+
+    while (context) {
+      const resolver = this.resolvers.get(context);
+
+      if (resolver) {
+        return resolver;
+      }
+
+      context = context.parent;
+    }
+
+    return null;
+  }
+}
 
 export class Context<T> {
-  private declare parent: Context<any> | null;
-  private declare readonly symbol: symbol;
-  public declare readonly name?: string;
+  public declare parent: Context<any> | null;
+  public declare readonly name: string;
 
-  constructor(name?: string) {
+  constructor(name: string) {
     this.parent = null;
     this.name = name;
-    this.symbol = Symbol(name);
   }
 
-  static resolvers(resolvers: Array<ContextResolver>): ContextResolvers {
-    const result: ContextResolvers = new Map();
+  static resolvers(resolvers: Array<ContextResolver<any>>): ContextResolvers {
+    const contextResolvers = new ContextResolvers();
 
-    return resolvers.reduce(
-      (acc, [key, resolver]) => acc.set(key, resolver),
-      result
-    );
-  }
+    resolvers.forEach((resolver) => {
+      contextResolvers.addResolver(resolver);
+    });
 
-  static addResolver(instance: IContext, resolver: ContextResolver): void {
-    (instance.contextResolvers ??= new Map()).set(resolver[0], resolver[1]);
-  }
-
-  static removeResolver(instance: IContext, resolverClass: Context<any>) {
-    instance.contextResolvers?.delete(resolverClass.symbol);
+    return contextResolvers;
   }
 
   static checkRequired(instance: any): void {
-    if (instance && typeof instance === "object") {
-      const constructor = instance.constructor;
-      const requiredContexts =
-        instance.requiredContexts ?? constructor?.requiredContexts;
+    const constructor = instance.constructor;
+    const requiredContexts =
+      instance.requiredContexts ?? constructor?.requiredContexts;
 
-      if (requiredContexts && Array.isArray(requiredContexts)) {
-        const missingContexts = requiredContexts.filter(
-          (context) => !context.findMaybe(instance)
+    if (requiredContexts && Array.isArray(requiredContexts)) {
+      const missingContexts = requiredContexts.filter(
+        (context) => !context.resolveMaybe(instance)
+      );
+
+      if (missingContexts.length > 0) {
+        const contextNames = missingContexts
+          .map((context) => context.name)
+          .join(", ");
+
+        throw new Error(
+          `Missing required contexts for instance of class '${constructor.name}': ${contextNames}`
         );
-
-        if (missingContexts.length > 0) {
-          const contextNames = missingContexts
-            .map((context) => context.name ?? "[Noname context]")
-            .join(", ");
-
-          console.error(
-            `Missing required contexts for instance of class '${constructor.name}': ${contextNames}`
-          );
-        }
       }
     }
   }
 
-  partial<P extends Partial<T>>(name?: string): Context<P> {
+  partial<P extends Partial<T>>(name: string): Context<P> {
     const context = new Context<P>(name);
     context.parent = this;
 
@@ -67,20 +90,20 @@ export class Context<T> {
   }
 
   resolvesTo(resolver: () => T): ContextResolver<T> {
-    return [this.symbol, resolver] as const;
+    return new ContextResolver(this, resolver);
   }
 
-  find(instance: IContext): T {
+  resolve(instance: IContext): T {
     const resolver = this.findResolver(instance);
 
     if (resolver) {
       return resolver();
     } else {
-      throw new Error(`Cannot find context ${this.name ?? "[Noname context]"}`);
+      throw new Error(`Cannot find context ${this.name}`);
     }
   }
 
-  findMaybe(instance: IContext): T | undefined {
+  resolveMaybe(instance: IContext): T | undefined {
     const resolver = this.findResolver(instance);
 
     if (resolver) {
@@ -90,38 +113,28 @@ export class Context<T> {
     }
   }
 
-  findResolver(instance: IContext): (() => T) | null {
-    let _instance: IContext | null | undefined = instance;
+  findResolver(_instance: IContext): (() => T) | null {
+    let instance: IContext | null | undefined = _instance;
 
-    while (_instance) {
+    while (instance) {
       let context: Context<any> | null = this;
 
       while (context) {
-        if (_instance.contextType === context) {
+        if (instance.contextType === context) {
           // eslint-disable-next-line no-loop-func
-          return () => _instance as T;
+          return () => instance as T;
         }
 
         context = context.parent;
       }
 
-      const resolvers = _instance.contextResolvers;
+      const resolver = instance.contextResolvers?.findResolver(this);
 
-      if (resolvers) {
-        context = this;
-
-        while (context) {
-          const resolver = resolvers.get(context.symbol);
-
-          if (resolver) {
-            return resolver;
-          }
-
-          context = context.parent;
-        }
+      if (resolver) {
+        return resolver;
       }
 
-      _instance = _instance.context;
+      instance = instance.context;
     }
 
     return null;

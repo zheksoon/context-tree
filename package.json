@@ -1,6 +1,6 @@
 {
   "name": "context-tree",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Simple hierarchical dependency injection library, as part of Fractal Architecture",
   "type": "module",
   "source": "src/index.ts",
@@ -13,7 +13,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "microbundle --no-compress",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "files": [
     "dist",
@@ -40,6 +40,8 @@
   },
   "homepage": "https://github.com/zheksoon/context-tree#readme",
   "devDependencies": {
-    "microbundle": "^0.15.1"
+    "@types/jest": "^29.5.10",
+    "microbundle": "^0.15.1",
+    "ts-jest": "^29.1.1"
   }
 }
