@@ -108,30 +108,30 @@ describe("Context", () => {
     });
   });
 
-describe("checkRequired", () => {
-  it("should throw an error if required contexts are missing", () => {
-    const missingContext = new Context<string>("MissingContext");
-    class TestClass {
-      static requiredContexts = [missingContext];
-    }
-    const testInstance = new TestClass();
+  describe("checkRequired", () => {
+    it("should throw an error if required contexts are missing", () => {
+      const missingContext = new Context<string>("MissingContext");
+      class TestClass {
+        static requiredContexts = [missingContext];
+      }
+      const testInstance = new TestClass();
 
-    expect(() => Context.checkRequired(testInstance)).toThrow(
-      `Missing required contexts for instance of class 'TestClass': MissingContext`
-    );
+      expect(() => Context.checkRequired(testInstance)).toThrow(
+        `Missing required contexts for instance of class 'TestClass': MissingContext`
+      );
+    });
+
+    it("should not throw an error if all required contexts are present", () => {
+      const presentContext = new Context<string>("PresentContext");
+      class TestClass {
+        static requiredContexts = [presentContext];
+      }
+      const testInstance = new TestClass();
+
+      // Mocking resolveMaybe to simulate presence of context
+      presentContext.resolveMaybe = jest.fn().mockReturnValue("SomeValue");
+
+      expect(() => Context.checkRequired(testInstance)).not.toThrow();
+    });
   });
-
-  it("should not throw an error if all required contexts are present", () => {
-    const presentContext = new Context<string>("PresentContext");
-    class TestClass {
-      static requiredContexts = [presentContext];
-    }
-    const testInstance = new TestClass();
-
-    // Mocking resolveMaybe to simulate presence of context
-    presentContext.resolveMaybe = jest.fn().mockReturnValue("SomeValue");
-
-    expect(() => Context.checkRequired(testInstance)).not.toThrow();
-  });
-});
 });
