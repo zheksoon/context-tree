@@ -1,7 +1,7 @@
 {
   "name": "context-tree",
-  "version": "0.1.1",
-  "description": "Simple hierarchical dependency injection library, as part of Fractal Architecture",
+  "version": "0.2.0",
+  "description": "Simple hierarchical dependency injection library, as the part of Fractal Architecture",
   "type": "module",
   "source": "src/index.ts",
   "main": "dist/index.cjs",

@@ -106,6 +106,124 @@ describe("Context", () => {
         expect(context.findResolver(instance)).toBe(resolver);
       });
     });
+
+    describe("long context chain resolution", () => {
+      it("should resolve a context value from a long chain of contexts", () => {
+        const context = new Context<string>("TestContext");
+
+        const instance1: IContext = {
+          context: null,
+          contextResolvers: Context.resolvers([
+            context.resolvesTo(() => "ResolvedValue1"),
+          ]),
+        };
+
+        const instance2: IContext = {
+          context: instance1,
+        };
+
+        const instance3: IContext = {
+          context: instance2,
+        };
+
+        const instance4: IContext = {
+          context: instance3,
+        };
+
+        expect(context.resolve(instance4)).toBe("ResolvedValue1");
+      });
+
+      it("should resolve a context value from a long chain of multiple contexts", () => {
+        const context1 = new Context<string>("TestContext1");
+        const context2 = new Context<string>("TestContext2");
+
+        const instance1: IContext = {
+          context: null,
+          contextResolvers: Context.resolvers([
+            context1.resolvesTo(() => "ResolvedValue1"),
+            context2.resolvesTo(() => "ResolvedValue2"),
+          ]),
+        };
+
+        const instance2: IContext = {
+          context: instance1,
+        };
+
+        const instance3: IContext = {
+          context: instance2,
+        };
+
+        const instance4: IContext = {
+          context: instance3,
+        };
+
+        expect(context1.resolve(instance4)).toBe("ResolvedValue1");
+        expect(context2.resolve(instance4)).toBe("ResolvedValue2");
+      });
+    });
+
+    describe("multiple parent contexts", () => {
+      it("should resolve a context value from multiple parent contexts", () => {
+        const context1 = new Context<string>("TestContext1");
+        const context2 = new Context<string>("TestContext2");
+
+        const parent1 = { context: null, contextType: context1 };
+        const parent2 = { context: null, contextType: context2 };
+
+        const instance: IContext = {
+          context: [parent1, parent2],
+        };
+
+        const instance2 = { context: instance };
+
+        expect(context1.resolve(instance2)).toBe(parent1);
+        expect(context2.resolve(instance2)).toBe(parent2);
+      });
+
+      it("should resolve to a closest parent context if multiple parent contexts are present", () => {
+        const context1 = new Context<string>("TestContext1");
+        const context2 = new Context<string>("TestContext2");
+
+        const parent1 = { context: null, contextType: context1 };
+        const parent2 = { context: null, contextType: context2 };
+
+        const instance: IContext = {
+          context: [parent1, parent2],
+        };
+
+        const instance2 = { context: instance };
+
+        const instance3 = { context: instance2, contextType: context1 };
+
+        const instance4 = { context: instance3 };
+
+        expect(context1.resolve(instance4)).toBe(instance3);
+        expect(context2.resolve(instance2)).toBe(parent2);
+      });
+
+      it("should traverse the context acyclic graph", () => {
+        // create acyclic graph of contexts with multiple parents
+        const context1 = new Context<string>("TestContext1");
+        const context2 = new Context<string>("TestContext2");
+        const context3 = new Context<string>("TestContext3");
+
+        const parent1 = { context: null, contextType: context1 };
+        const parent2 = { context: null, contextType: context2 };
+
+        const instance: IContext = {
+          context: [parent1, parent2],
+        };
+
+        const instance2 = { context: [instance, parent1] };
+
+        const instance3 = { context: [instance2, parent2] };
+
+        const instance4 = { context: [instance3, parent1, parent2] };
+
+        expect(context1.resolve(instance4)).toBe(parent1);
+        expect(context2.resolve(instance4)).toBe(parent2);
+      });
+    });
   });
 
   describe("checkRequired", () => {

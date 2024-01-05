@@ -9,22 +9,22 @@
 </h1>
 
 **context-tree** is a simple implementation of a hierarchical dependency injection (DI) pattern for building scalable web applications.
-It implements the same concept as React's `Context`, but without relying on React. 
+It implements the same concept as React's `Context`, but without relying on React.
 The pattern allows you to create arbitrary nested applications and sub-applications, simplifying the architecture and maintaining code clarity.
 
 Unlike other DI frameworks, **context-tree** does not require you to define a dependency graph in advance, offering a more flexible approach.
 The difference from the other DI frameworks is an inherent hierarchy of injectable entities, called **contexts**.
-They align with the hierarchy of the application itself and form a tree like React contexts do. 
-Like in React, you can redefine the context value at any point of the tree, and also add and remove context resolvers dynamically.
+They align with the hierarchy of the application itself and form a tree like React contexts do.
+Like React, you can redefine the context value at any point of the tree, and also add and remove context resolvers dynamically.
 
-**context-tree** is framework-agnostic and can be used with any framework or without a framework at all. 
+**context-tree** is framework-agnostic and can be used with any framework or without a framework at all.
 It also does not require any decorators or other magic, so it's easy to understand and debug, and can be used in pure JS projects.
 **context-tree** has no dependencies and is very lightweight, and because of the pattern simplicity, it's very fast.
 
 ## Defining models
 
-**Context-tree** requires your data models to implement a simple `IContext` interface with only one field required: `context` of type `IContext | null | undefined`.
-This field should point to a parent model, or be `null` in case there is no parent model.
+**Context-tree** requires your data models to implement a simple `IContext` interface with only one field required: `context` of type `IContext | IContext[] | null | undefined`.
+This field should point to a parent or multiple parent models, or be `null` in case there is no parent model.
 
 Here's a simple example:
 
@@ -46,7 +46,7 @@ class ChildModel implements IContext {
 }
 ```
 
-At this point of time, we have a model tree. Let's define a context and add the resolver fo it.
+At this point, we have a model tree. Let's define a context and add the resolver to it.
 
 ```ts
 import { Context, IContext } from "context-tree";
@@ -76,6 +76,7 @@ class RootModel implements IContext {
 
   private config = new ConfigModel();
 
+  // pass this as the context of the child model
   private childModel = new ChildModel(this);
 }
 
@@ -83,7 +84,7 @@ class ChildModel implements IContext {
   constructor(public context: IContext) {}
 
   async getData() {
-    // to get the config instance, call `resolve` on the context 
+    // to get the config instance, call `resolve` on the context
     // and pass the current model as the first argument
     const config = ConfigContext.resolve(this);
 
@@ -144,24 +145,22 @@ PartialConfigContext.resolve(this);
 
 ### Dynamic context manipulation
 
-Context resolvers can be dynamically added or removed from a model. This might be useful in complex scenarios, when contexts are not known in advance.
+Context resolvers can be dynamically added or removed from a model. This might be useful in complex scenarios when contexts are not known in advance.
 
 ```ts
-const Context1 = new Context<number>('Context1');
-const Context2 = new Context<string>('Context2');
+const Context1 = new Context<number>("Context1");
+const Context2 = new Context<string>("Context2");
 
 class RootModel implements IContext {
   // no parent context
   context = null;
 
   // define static resolvers
-  contextResolvers = Context.resolvers([
-    Context1.resolvesTo(() => 1 + 2),
-  ]);
+  contextResolvers = Context.resolvers([Context1.resolvesTo(() => 1 + 2)]);
 
   // add dynamic resolvers
   doSomething() {
-    this.contextResolvers.addResolver(Context2.resolvesTo(() => 'hello'));
+    this.contextResolvers.addResolver(Context2.resolvesTo(() => "hello"));
   }
 
   // remove dynamic resolvers
@@ -176,17 +175,15 @@ class RootModel implements IContext {
 Sometimes you want to make sure that a model has all required contexts resolved. For example, you may want to make sure that a model has a config context resolved before it can be used. To do that, you can define a static field `requiredContexts` on a class or class instance:
 
 ```ts
-const Context1 = new Context<number>('Context1');
-const Context2 = new Context<string>('Context2');
+const Context1 = new Context<number>("Context1");
+const Context2 = new Context<string>("Context2");
 
 class RootModel implements IContext {
   // no parent context
   context = null;
 
   // define resolvers
-  contextResolvers = Context.resolvers([
-    Context1.resolvesTo(() => 1 + 2),
-  ]);
+  contextResolvers = Context.resolvers([Context1.resolvesTo(() => 1 + 2)]);
 
   // define required contexts
   // RootModel has no Context2 resolver, so it will throw an error
@@ -199,11 +196,35 @@ Context.checkRequired(new RootModel());
 
 # API
 
+## Models
+
+Each model should implement the `IContext` interface:
+
+```ts
+interface IContext {
+  context: IContext | IContext[] | null | undefined;
+  contextType?: Context<any>;
+  contextResolvers?: ContextResolvers;
+}
+```
+
+The usual way to pass the required `context` field is the first argument of the constructor:
+
+```ts
+class Model implements IContext {
+  constructor(public context: IContext) {}
+}
+```
+
 ## Context
 
 ### `new Context<T>(name: string): Context<T>`
 
 Creates a new context with the given name. The name is used for debugging purposes.
+
+### `contextInstance.partial<T>(name: string): Context<T>`
+
+Creates a partial context derived from the current context. The partial context can be resolved to the closest parent model that implements the partial interface.
 
 ### `Context.resolvesTo<T>(resolver: () => T): ContextResolver<T>`
 
@@ -211,11 +232,7 @@ Create a resolver for the context. The resolver is a function that returns a val
 
 ### `Context.resolvers(resolvers: Array<ContextResolver<any>>): ContextResolvers`
 
-Define a list of resolvers for a model. 
-
-### `contextInstance.partial<T>(name: string): Context<T>`
-
-Creates a partial context derived from the current context. The partial context can be resolved to the closest parent model that implements the partial interface.
+Define a list of resolvers for a model.
 
 ### `contextInstance.resolve<T>(model: IContext): T`
 

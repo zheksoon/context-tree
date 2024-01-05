@@ -1,18 +1,20 @@
-export interface IContext {
-  context: IContext | null | undefined;
-  contextType?: Context<any>;
-  contextResolvers?: ContextResolvers;
-}
+type Resolver<T> = () => T;
 
 export class ContextResolver<T> {
   constructor(
     public readonly context: Context<T>,
-    public readonly resolver: () => T
+    public readonly resolver: Resolver<T>
   ) {}
 }
 
+export interface IContext {
+  context: IContext | IContext[] | null | undefined;
+  contextType?: Context<any>;
+  contextResolvers?: ContextResolvers;
+}
+
 export class ContextResolvers {
-  private resolvers: Map<Context<any>, () => any> = new Map();
+  private resolvers: Map<Context<any>, Resolver<any>> = new Map();
 
   addResolver(resolver: ContextResolver<any>) {
     const { context, resolver: _resolver } = resolver;
@@ -24,7 +26,7 @@ export class ContextResolvers {
     this.resolvers.delete(context);
   }
 
-  findResolver<T>(_context: Context<T>): (() => T) | null {
+  findResolver<T>(_context: Context<T>): Resolver<T> | null {
     let context: Context<any> | null | undefined = _context;
 
     while (context) {
@@ -40,6 +42,8 @@ export class ContextResolvers {
     return null;
   }
 }
+
+const contextTypeResolversCache = new WeakMap<IContext, Resolver<any>>();
 
 export class Context<T> {
   public declare parent: Context<any> | null;
@@ -89,7 +93,7 @@ export class Context<T> {
     return context;
   }
 
-  resolvesTo(resolver: () => T): ContextResolver<T> {
+  resolvesTo(resolver: Resolver<T>): ContextResolver<T> {
     return new ContextResolver(this, resolver);
   }
 
@@ -113,28 +117,51 @@ export class Context<T> {
     }
   }
 
-  findResolver(_instance: IContext): (() => T) | null {
-    let instance: IContext | null | undefined = _instance;
+  findResolver(_instance: IContext): Resolver<T> | null {
+    const bfsQueue = new Set<IContext>();
 
-    while (instance) {
-      let context: Context<any> | null = this;
+    bfsQueue.add(_instance);
 
-      while (context) {
-        if (instance.contextType === context) {
-          // eslint-disable-next-line no-loop-func
-          return () => instance as T;
-        }
-
-        context = context.parent;
-      }
-
-      const resolver = instance.contextResolvers?.findResolver(this);
+    for (const instance of bfsQueue) {
+      const resolver =
+        this.contextTypeResolver(instance) ??
+        instance.contextResolvers?.findResolver(this);
 
       if (resolver) {
         return resolver;
       }
 
-      instance = instance.context;
+      if (instance.context) {
+        if (Array.isArray(instance.context)) {
+          instance.context.forEach((context) => {
+            bfsQueue.add(context);
+          });
+        } else {
+          bfsQueue.add(instance.context);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private contextTypeResolver(instance: IContext): Resolver<T> | null {
+    let context: Context<any> | null = this;
+
+    while (context) {
+      if (instance.contextType === context) {
+        let instanceResolver = contextTypeResolversCache.get(instance);
+
+        if (!instanceResolver) {
+          instanceResolver = () => instance;
+
+          contextTypeResolversCache.set(instance, instanceResolver);
+        }
+
+        return instanceResolver;
+      }
+
+      context = context.parent;
     }
 
     return null;
