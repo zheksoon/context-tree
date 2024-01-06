@@ -247,7 +247,7 @@ describe("Context", () => {
       const testInstance = new TestClass();
 
       // Mocking resolveMaybe to simulate presence of context
-      presentContext.resolveMaybe = jest.fn().mockReturnValue("SomeValue");
+      presentContext.findResolver = jest.fn(() => () => "SomeValue");
 
       expect(() => Context.checkRequired(testInstance)).not.toThrow();
     });

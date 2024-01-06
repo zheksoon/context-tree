@@ -46,20 +46,20 @@ export class ContextResolvers {
 const contextTypeResolversCache = new WeakMap<IContext, Resolver<any>>();
 
 export class Context<T> {
-  public declare parent: Context<any> | null;
+  public declare readonly parent: Context<any> | null;
   public declare readonly name: string;
 
-  constructor(name: string) {
-    this.parent = null;
+  constructor(name: string, parent: Context<any> | null = null) {
+    this.parent = parent;
     this.name = name;
   }
 
   static resolvers(resolvers: Array<ContextResolver<any>>): ContextResolvers {
     const contextResolvers = new ContextResolvers();
 
-    resolvers.forEach((resolver) => {
+    for (const resolver of resolvers) {
       contextResolvers.addResolver(resolver);
-    });
+    }
 
     return contextResolvers;
   }
@@ -71,7 +71,7 @@ export class Context<T> {
 
     if (requiredContexts && Array.isArray(requiredContexts)) {
       const missingContexts = requiredContexts.filter(
-        (context) => !context.resolveMaybe(instance)
+        (context) => !context.findResolver(instance)
       );
 
       if (missingContexts.length > 0) {
@@ -87,10 +87,7 @@ export class Context<T> {
   }
 
   partial<P extends Partial<T>>(name: string): Context<P> {
-    const context = new Context<P>(name);
-    context.parent = this;
-
-    return context;
+    return new Context<P>(name, this);
   }
 
   resolvesTo(resolver: Resolver<T>): ContextResolver<T> {
@@ -103,7 +100,7 @@ export class Context<T> {
     if (resolver) {
       return resolver();
     } else {
-      throw new Error(`Cannot find context ${this.name}`);
+      throw new Error(`Cannot find resolver for context ${this.name}`);
     }
   }
 
@@ -117,10 +114,12 @@ export class Context<T> {
     }
   }
 
-  findResolver(_instance: IContext): Resolver<T> | null {
+  findResolver(startInstance: IContext): Resolver<T> | null {
     const bfsQueue = new Set<IContext>();
 
-    bfsQueue.add(_instance);
+    bfsQueue.add(startInstance);
+
+    let resolver: Resolver<T> | null = null;
 
     for (const instance of bfsQueue) {
       const resolver =
@@ -131,13 +130,15 @@ export class Context<T> {
         return resolver;
       }
 
-      if (instance.context) {
-        if (Array.isArray(instance.context)) {
-          instance.context.forEach((context) => {
-            bfsQueue.add(context);
-          });
+      const { context } = instance;
+
+      if (context) {
+        if (Array.isArray(context)) {
+          for (const parent of context) {
+            bfsQueue.add(parent);
+          }
         } else {
-          bfsQueue.add(instance.context);
+          bfsQueue.add(context);
         }
       }
     }

@@ -1,19 +1,16 @@
 {
   "name": "context-tree",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Simple hierarchical dependency injection library, as the part of Fractal Architecture",
-  "type": "module",
   "source": "src/index.ts",
-  "main": "dist/index.cjs",
-  "module": "dist/index.module.js",
-  "exports": {
-    "require": "./dist/index.cjs",
-    "default": "./dist/index.modern.js",
-    "types": "./dist/index.d.ts"
-  },
+  "main": "./dist/index.js",
+  "module": "./dist/esm/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "microbundle --no-compress",
+    "clean": "rimraf dist",
+    "prebuild": "npm run clean",
+    "build": " tsc --module commonjs --outDir dist && tsc --module esnext --outDir dist/esm",
+    "preversion": "npm run build",
     "test": "jest"
   },
   "files": [
@@ -55,7 +52,8 @@
   "homepage": "https://github.com/zheksoon/context-tree#readme",
   "devDependencies": {
     "@types/jest": "^29.5.10",
-    "microbundle": "^0.15.1",
-    "ts-jest": "^29.1.1"
+    "rimraf": "^5.0.5",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
   }
 }
