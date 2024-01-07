@@ -1,11 +1,11 @@
 {
   "name": "context-tree",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Simple hierarchical dependency injection library, as the part of Fractal Architecture",
   "source": "src/index.ts",
   "main": "./dist/index.js",
   "module": "./dist/esm/index.js",
-  "types": "dist/index.d.ts",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "clean": "rimraf dist",
     "prebuild": "npm run clean",
